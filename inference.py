@@ -14,7 +14,9 @@ HF_TOKEN = os.getenv("HF_TOKEN")
 LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
 
 ENV_URL = os.getenv("ENV_URL", "https://kaushikss-vitascale.hf.space")
+BENCHMARK = "vitascale"
 LLM_CALL_INTERVAL = 5
+TEMPERATURE = 0.0
 MAX_TOTAL_REWARD = 720.0
 SUCCESS_SCORE_THRESHOLD = 0.5
 
@@ -122,7 +124,7 @@ def llm_action(client: OpenAI, obs: dict, step_num: int) -> dict:
             model=MODEL_NAME,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=60,
-            temperature=0.1,
+            temperature=TEMPERATURE,
         )
         text = resp.choices[0].message.content.strip()
         text = text.strip("`").strip()
@@ -144,12 +146,14 @@ def run_task(task_id: str, client: OpenAI) -> float:
     steps_taken = 0
     score = 0.0
     success = False
+    last_info = {}
 
-    log_start(task=task_id, env="vitascale", model=MODEL_NAME)
+    log_start(task=task_id, env=BENCHMARK, model=MODEL_NAME)
 
     try:
         result = env.reset(task_id)
         obs = result["observation"]
+        last_info = result.get("info", {})
 
         while not result.get("done", False):
             if steps_taken % LLM_CALL_INTERVAL == 0:
@@ -164,7 +168,8 @@ def run_task(task_id: str, client: OpenAI) -> float:
                 obs = result["observation"]
                 reward = float(result.get("reward", 0.0) or 0.0)
                 done = bool(result.get("done", False))
-                error = result.get("info", {}).get("last_action_error")
+                last_info = result.get("info", {})
+                error = last_info.get("last_action_error")
                 rewards.append(reward)
                 steps_taken += 1
                 log_step(step=steps_taken, action=action_str, reward=reward, done=done, error=error)
@@ -173,8 +178,12 @@ def run_task(task_id: str, client: OpenAI) -> float:
                 log_step(step=steps_taken, action=action_str, reward=0.0, done=True, error=str(exc))
                 break
 
-        score = sum(rewards) / MAX_TOTAL_REWARD if MAX_TOTAL_REWARD > 0 else 0.0
-        score = min(max(score, 0.0), 1.0)
+        final_score = last_info.get("final_score")
+        if isinstance(final_score, (int, float)):
+            score = float(final_score)
+        else:
+            score = sum(rewards) / MAX_TOTAL_REWARD if MAX_TOTAL_REWARD > 0 else 0.0
+            score = min(max(score, 0.0), 1.0)
         success = score >= SUCCESS_SCORE_THRESHOLD
 
     finally:

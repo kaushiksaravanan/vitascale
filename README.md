@@ -12,7 +12,7 @@ tags:
 
 # VitaScale: Long-Horizon Dynamic Resource Orchestrator
 
-An OpenEnv environment where AI agents learn to manage cloud infrastructure at scale. The agent controls a fleet of compute instances serving real-time web traffic, balancing **cost efficiency**, **SLA compliance**, and **resilience** over 12-hour production windows.
+An OpenEnv environment where AI agents learn to manage cloud infrastructure at scale. The agent controls a fleet of compute instances serving real-time web traffic, balancing **cost efficiency**, **SLA compliance**, and **resilience** over 24-hour production windows.
 
 ## Motivation
 
@@ -72,13 +72,15 @@ Per-step reward provides rich signal (not binary):
 **Medium**: SLA (35%), cost (30%), burst response (20%), failure recovery (15%)
 **Hard**: SLA (25%), cost (25%), failure survival (20%), adaptive scaling (15%), curriculum response (15%)
 
-## Baseline Scores (rule-based agent)
+## Reference Baseline Scores (hybrid LLM + heuristic agent)
 
 | Task | Baseline Score | SLA Violations | Cost | Notes |
 |------|---------------|---------------|------|-------|
 | easy_bench | 0.82 | 0 min | $554 | Perfect SLA; cost optimization is main challenge |
 | medium_bench | 0.68 | 3 min | $650 | Burst response timing is key differentiator |
 | hard_bench | 0.76 | 11 min | $761 | Curriculum response + failure survival needed |
+
+These scores are reported using the submitted baseline `inference.py`, which queries an OpenAI-compatible model every 5 steps and falls back to deterministic scaling heuristics between model calls.
 
 ## Setup & Usage
 
@@ -123,9 +125,12 @@ vitascalenv/
 ├── graders.py         # Deterministic 0.0-1.0 graders
 ├── load_traces.py     # Pre-computed deterministic traces
 ├── app.py             # FastAPI endpoints
+├── server/app.py      # OpenEnv multi-mode server entry point
 ├── inference.py       # Baseline inference script
 ├── openenv.yaml       # OpenEnv metadata
 ├── Dockerfile         # Container config
+├── pyproject.toml     # OpenEnv package metadata and scripts
 ├── requirements.txt   # Dependencies
+├── uv.lock            # Locked dependency graph
 └── README.md          # This file
 ```
