@@ -1,0 +1,49 @@
+name: vitascale
+version: "1.0.0"
+description: >
+  Long-horizon dynamic cloud resource orchestrator. Simulates 24-hour
+  production workloads with diurnal patterns, traffic bursts, node failures,
+  price spikes, carbon peaks, and curriculum learning injections.
+  Agent must balance cost, SLA compliance, and resilience.
+author: "Kaushik S"
+tags:
+  - openenv
+  - autoscaling
+  - cloud-orchestration
+  - real-world
+  - curriculum-rl
+
+models:
+  observation: models:Observation
+  action: models:Action
+  state: models:State
+
+server:
+  module: app:app
+  port: 7860
+
+tasks:
+  - id: easy_bench
+    name: Stable Diurnal Load
+    description: >
+      Manage cloud instances under a predictable 24-hour diurnal traffic pattern.
+      No failures, no spikes. Agent learns basic scaling rhythm.
+    difficulty: easy
+    max_steps: 720
+
+  - id: medium_bench
+    name: Diurnal + Bursts & Failures
+    description: >
+      Diurnal traffic plus 6 random traffic bursts and 2 node-down failures.
+      Agent must react to spikes and recover from failures while managing cost.
+    difficulty: medium
+    max_steps: 720
+
+  - id: hard_bench
+    name: Full Chaos + Curriculum
+    description: >
+      Highly noisy load, cascading failures, price spikes, carbon peak events,
+      and periodic curriculum easy-resets. Agent must balance cost, SLA,
+      resilience, and adaptive scaling under extreme conditions.
+    difficulty: hard
+    max_steps: 720
