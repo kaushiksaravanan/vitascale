@@ -1,10 +1,10 @@
 """Baseline inference script for VitaScale environment."""
 
-import os
-import sys
 import json
+import os
+from typing import List, Optional
+
 import httpx
-from typing import List
 from openai import OpenAI
 
 # ── Environment variables (checklist-compliant) ──────────────────────
@@ -18,21 +18,41 @@ LLM_CALL_INTERVAL = 5
 MAX_TOTAL_REWARD = 720.0
 SUCCESS_SCORE_THRESHOLD = 0.5
 
-# ── OpenAI client ────────────────────────────────────────────────────
-client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
-
-
 # ── Structured logging (matches sample format exactly) ───────────────
+def _format_bool(value: bool) -> str:
+    return "true" if value else "false"
+
+
+def _format_error(error: Optional[str]) -> str:
+    if error is None:
+        return "null"
+    cleaned = str(error).replace("\r", " ").replace("\n", " ").strip()
+    return cleaned or "null"
+
+
+def _format_action(action: dict) -> str:
+    return f"{action.get('action_type', 'do_nothing')}({int(action.get('num_instances', 0))})"
+
+
 def log_start(task: str, env: str, model: str):
-    print(json.dumps({"type": "[START]", "task": task, "env": env, "model": model}), flush=True)
+    print(f"[START] task={task} env={env} model={model}", flush=True)
 
 
 def log_step(step: int, action: str, reward: float, done: bool, error=None):
-    print(json.dumps({"type": "[STEP]", "step": step, "action": action, "reward": reward, "done": done, "error": error}), flush=True)
+    print(
+        f"[STEP] step={step} action={action} reward={reward:.2f} "
+        f"done={_format_bool(done)} error={_format_error(error)}",
+        flush=True,
+    )
 
 
 def log_end(success: bool, steps: int, score: float, rewards: List[float]):
-    print(json.dumps({"type": "[END]", "success": success, "steps": steps, "score": score, "rewards": rewards}), flush=True)
+    rewards_str = ",".join(f"{reward:.2f}" for reward in rewards)
+    print(
+        f"[END] success={_format_bool(success)} steps={steps} "
+        f"score={score:.2f} rewards={rewards_str}",
+        flush=True,
+    )
 
 
 # ── Environment client ───────────────────────────────────────────────
@@ -56,6 +76,9 @@ class EnvClient:
         r.raise_for_status()
         return r.json()
 
+    def close(self) -> None:
+        self.http.close()
+
 
 # ── Rule-based fallback policy ───────────────────────────────────────
 def rule_based_action(obs: dict) -> dict:
@@ -76,7 +99,7 @@ def rule_based_action(obs: dict) -> dict:
 
 
 # ── LLM-based policy ────────────────────────────────────────────────
-def llm_action(obs: dict, step_num: int) -> dict:
+def llm_action(client: OpenAI, obs: dict, step_num: int) -> dict:
     prompt = (
         f"You are a cloud autoscaling agent managing a production cluster.\n"
         f"Current state at step {step_num}:\n"
@@ -115,9 +138,8 @@ def llm_action(obs: dict, step_num: int) -> dict:
 
 
 # ── Run one task ─────────────────────────────────────────────────────
-def run_task(env: EnvClient, task_id: str):
-    result = env.reset(task_id)
-    obs = result["observation"]
+def run_task(task_id: str, client: OpenAI) -> float:
+    env = EnvClient(ENV_URL)
     rewards: List[float] = []
     steps_taken = 0
     score = 0.0
@@ -126,26 +148,37 @@ def run_task(env: EnvClient, task_id: str):
     log_start(task=task_id, env="vitascale", model=MODEL_NAME)
 
     try:
+        result = env.reset(task_id)
+        obs = result["observation"]
+
         while not result.get("done", False):
             if steps_taken % LLM_CALL_INTERVAL == 0:
-                action = llm_action(obs, steps_taken)
+                action = llm_action(client, obs, steps_taken)
             else:
                 action = rule_based_action(obs)
 
-            result = env.step(action)
-            obs = result["observation"]
-            reward = result.get("reward", 0.0)
-            done = result.get("done", False)
-            rewards.append(reward)
-            steps_taken += 1
+            action_str = _format_action(action)
 
-            log_step(step=steps_taken, action=action["action_type"], reward=reward, done=done, error=None)
+            try:
+                result = env.step(action)
+                obs = result["observation"]
+                reward = float(result.get("reward", 0.0) or 0.0)
+                done = bool(result.get("done", False))
+                error = result.get("info", {}).get("last_action_error")
+                rewards.append(reward)
+                steps_taken += 1
+                log_step(step=steps_taken, action=action_str, reward=reward, done=done, error=error)
+            except Exception as exc:
+                steps_taken += 1
+                log_step(step=steps_taken, action=action_str, reward=0.0, done=True, error=str(exc))
+                break
 
         score = sum(rewards) / MAX_TOTAL_REWARD if MAX_TOTAL_REWARD > 0 else 0.0
         score = min(max(score, 0.0), 1.0)
         success = score >= SUCCESS_SCORE_THRESHOLD
 
     finally:
+        env.close()
         log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 
     return score
@@ -153,15 +186,13 @@ def run_task(env: EnvClient, task_id: str):
 
 # ── Main ─────────────────────────────────────────────────────────────
 def main():
-    env = EnvClient(ENV_URL)
+    if not HF_TOKEN:
+        raise SystemExit("HF_TOKEN environment variable is required.")
+
+    client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
     tasks = ["easy_bench", "medium_bench", "hard_bench"]
-    results = {}
     for task_id in tasks:
-        sc = run_task(env, task_id)
-        results[task_id] = sc
-    print(f"\n=== Summary ===")
-    for tid, sc in results.items():
-        print(f"  {tid}: {sc:.4f}")
+        run_task(task_id, client)
 
 
 if __name__ == "__main__":
