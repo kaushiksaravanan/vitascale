@@ -1,0 +1,16 @@
+[project]
+name = "vitascale"
+version = "1.0.0"
+description = "Long-horizon dynamic cloud resource orchestrator OpenEnv"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "httpx",
+    "openai",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
