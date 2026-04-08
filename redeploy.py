@@ -4,7 +4,7 @@ from huggingface_hub import HfApi
 
 HF_TOKEN = os.environ.get("HF_TOKEN", "")
 REPO = os.environ.get("HF_REPO_ID", "kaushikss/vitascale")
-BASE = r"c:\Users\I587436\Downloads\hackathon\vitascalenv"
+BASE = os.path.dirname(os.path.abspath(__file__))
 
 if not HF_TOKEN:
     raise RuntimeError("HF_TOKEN environment variable is required.")

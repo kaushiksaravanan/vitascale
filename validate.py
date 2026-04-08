@@ -1,8 +1,10 @@
 """Pre-submission validation checklist for VitaScale."""
+import os
 import httpx
 import json
 
 BASE = "https://kaushikss-vitascale.hf.space"
+_DIR = os.path.dirname(os.path.abspath(__file__))
 c = httpx.Client(timeout=30)
 checks = []
 
@@ -69,7 +71,7 @@ check("Space is Docker-based (confirmed running)", True)
 
 # 6. Baseline inference script format
 print("\n6. Inference script format check")
-with open(r"c:\Users\I587436\Downloads\hackathon\vitascalenv\inference.py") as f:
+with open(os.path.join(_DIR, "inference.py")) as f:
     content = f.read()
 check("[START] log present", "[START]" in content)
 check("[STEP] log present", "[STEP]" in content)
@@ -86,7 +88,7 @@ check("inference.py in root dir", True)
 # 7. openenv.yaml
 print("\n7. openenv.yaml check")
 import yaml
-with open(r"c:\Users\I587436\Downloads\hackathon\vitascalenv\openenv.yaml") as f:
+with open(os.path.join(_DIR, "openenv.yaml")) as f:
     cfg = yaml.safe_load(f)
 check("name defined", "name" in cfg, cfg.get("name"))
 check("version defined", "version" in cfg)

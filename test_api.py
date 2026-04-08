@@ -1,7 +1,7 @@
 """Test VitaScale HTTP API endpoints."""
 import httpx
 
-BASE = "http://localhost:7861"
+BASE = "http://localhost:7860"
 c = httpx.Client(timeout=30)
 
 # Root
