@@ -4,6 +4,7 @@ import os
 import sys
 import json
 import httpx
+from typing import List
 from openai import OpenAI
 
 # ── Environment variables (checklist-compliant) ──────────────────────
@@ -14,9 +15,24 @@ LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
 
 ENV_URL = os.getenv("ENV_URL", "https://kaushikss-vitascale.hf.space")
 LLM_CALL_INTERVAL = 5
+MAX_TOTAL_REWARD = 720.0
+SUCCESS_SCORE_THRESHOLD = 0.5
 
 # ── OpenAI client ────────────────────────────────────────────────────
 client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
+
+
+# ── Structured logging (matches sample format exactly) ───────────────
+def log_start(task: str, env: str, model: str):
+    print(json.dumps({"type": "[START]", "task": task, "env": env, "model": model}), flush=True)
+
+
+def log_step(step: int, action: str, reward: float, done: bool, error=None):
+    print(json.dumps({"type": "[STEP]", "step": step, "action": action, "reward": reward, "done": done, "error": error}), flush=True)
+
+
+def log_end(success: bool, steps: int, score: float, rewards: List[float]):
+    print(json.dumps({"type": "[END]", "success": success, "steps": steps, "score": score, "rewards": rewards}), flush=True)
 
 
 # ── Environment client ───────────────────────────────────────────────
@@ -102,27 +118,37 @@ def llm_action(obs: dict, step_num: int) -> dict:
 def run_task(env: EnvClient, task_id: str):
     result = env.reset(task_id)
     obs = result["observation"]
-    total_reward = 0.0
-    step_num = 0
+    rewards: List[float] = []
+    steps_taken = 0
+    score = 0.0
+    success = False
 
-    print(f"[START] task={task_id}")
+    log_start(task=task_id, env="vitascale", model=MODEL_NAME)
 
-    while not result.get("done", False):
-        if step_num % LLM_CALL_INTERVAL == 0:
-            action = llm_action(obs, step_num)
-        else:
-            action = rule_based_action(obs)
+    try:
+        while not result.get("done", False):
+            if steps_taken % LLM_CALL_INTERVAL == 0:
+                action = llm_action(obs, steps_taken)
+            else:
+                action = rule_based_action(obs)
 
-        result = env.step(action)
-        obs = result["observation"]
-        reward = result.get("reward", 0)
-        total_reward += reward
-        step_num += 1
+            result = env.step(action)
+            obs = result["observation"]
+            reward = result.get("reward", 0.0)
+            done = result.get("done", False)
+            rewards.append(reward)
+            steps_taken += 1
 
-        print(f"[STEP] step={step_num} reward={reward:.4f} total={total_reward:.4f} action={action['action_type']} instances={obs.get('instance_count', 0)}")
+            log_step(step=steps_taken, action=action["action_type"], reward=reward, done=done, error=None)
 
-    print(f"[END] task={task_id} steps={step_num} total_reward={total_reward:.4f}")
-    return total_reward
+        score = sum(rewards) / MAX_TOTAL_REWARD if MAX_TOTAL_REWARD > 0 else 0.0
+        score = min(max(score, 0.0), 1.0)
+        success = score >= SUCCESS_SCORE_THRESHOLD
+
+    finally:
+        log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
+
+    return score
 
 
 # ── Main ─────────────────────────────────────────────────────────────
@@ -131,8 +157,8 @@ def main():
     tasks = ["easy_bench", "medium_bench", "hard_bench"]
     results = {}
     for task_id in tasks:
-        score = run_task(env, task_id)
-        results[task_id] = score
+        sc = run_task(env, task_id)
+        results[task_id] = sc
     print(f"\n=== Summary ===")
     for tid, sc in results.items():
         print(f"  {tid}: {sc:.4f}")
