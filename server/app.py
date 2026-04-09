@@ -8,11 +8,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import RedirectResponse
 
-from models import Action
 from env import VitaScaleEnv
-from web_ui import render_dashboard_html
+from models import Action, Observation
 
 app = FastAPI(
     title="VitaScale Environment",
@@ -31,6 +30,9 @@ app.add_middleware(
 env = VitaScaleEnv()
 
 TASKS = ["easy_bench", "medium_bench", "hard_bench"]
+ENABLE_WEB_INTERFACE = os.environ.get("ENABLE_WEB_INTERFACE", "false").lower() == "true"
+web_interface_enabled = False
+web_interface_error = None
 
 
 @app.get("/")
@@ -40,17 +42,10 @@ async def root():
         "version": "1.0.0",
         "status": "running",
         "tasks": TASKS,
+        "web_interface_enabled": web_interface_enabled,
+        "web_interface_path": "/web" if web_interface_enabled else None,
+        "web_interface_error": web_interface_error,
     }
-
-
-@app.get("/web", response_class=HTMLResponse)
-async def web_dashboard():
-    return render_dashboard_html(TASKS)
-
-
-@app.get("/dashboard", response_class=HTMLResponse)
-async def dashboard_alias():
-    return render_dashboard_html(TASKS)
 
 
 @app.get("/health")
@@ -106,6 +101,35 @@ async def list_tasks():
             "max_steps": 720,
         },
     }
+
+
+def _attach_openenv_web_routes() -> tuple[bool, str | None]:
+    try:
+        from openenv.core.env_server import create_web_interface_app
+
+        web_app = create_web_interface_app(env, Action, Observation)
+        existing_routes = {
+            (tuple(sorted(getattr(route, "methods", set()) or [])), getattr(route, "path", None))
+            for route in app.router.routes
+        }
+        for route in web_app.router.routes:
+            key = (tuple(sorted(getattr(route, "methods", set()) or [])), getattr(route, "path", None))
+            if key not in existing_routes:
+                app.router.routes.append(route)
+        return True, None
+    except Exception as exc:
+        return False, str(exc)
+
+
+if ENABLE_WEB_INTERFACE:
+    web_interface_enabled, web_interface_error = _attach_openenv_web_routes()
+
+
+@app.get("/dashboard")
+async def dashboard_alias():
+    if not web_interface_enabled:
+        raise HTTPException(status_code=404, detail=web_interface_error or "Built-in OpenEnv web interface unavailable.")
+    return RedirectResponse(url="/web", status_code=307)
 
 
 def main():

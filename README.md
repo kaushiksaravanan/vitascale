@@ -105,9 +105,13 @@ docker build -t vitascale .
 docker run -p 7860:7860 vitascale
 ```
 
-### Built-in Web Dashboard
+### Built-in OpenEnv Web Interface
 
-Open the live visualization at:
+This project uses the built-in OpenEnv interactive web interface.
+No separate `openenv-core[gui]` extra is required here — the `openenv-core`
+package already includes the web UI dependencies used by the environment.
+
+With `ENABLE_WEB_INTERFACE=true`, open:
 
 ```bash
 http://localhost:7860/web
@@ -119,15 +123,15 @@ or on the deployed Space:
 https://kaushikss-vitascale.hf.space/web
 ```
 
-The dashboard lets you reset tasks, trigger scaling actions, inspect state, and visualize load vs capacity, reward history, queue pressure, response time, and recent task events in real time.
+The `/dashboard` route is provided as a friendly alias that redirects to `/web`.
 
 ### API Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/` | Environment info |
-| GET | `/web` | Interactive GUI dashboard |
-| GET | `/dashboard` | Alias for the GUI dashboard |
+| GET | `/web` | Built-in OpenEnv interactive web interface |
+| GET | `/dashboard` | Redirect alias to `/web` |
 | GET | `/health` | Health check |
 | POST | `/reset?task_id=...` | Reset with a task |
 | POST | `/step` | Submit action (body: `{"action_type": "...", "num_instances": N}`) |
