@@ -103,7 +103,7 @@ def _attach_openenv_web_routes() -> tuple[bool, str | None]:
     try:
         from openenv.core.env_server import create_web_interface_app
 
-        web_app = create_web_interface_app(env, Action, Observation)
+        web_app = create_web_interface_app(VitaScaleEnv, Action, Observation)
         existing_routes = {
             (tuple(sorted(getattr(route, "methods", set()) or [])), getattr(route, "path", None))
             for route in app.router.routes
