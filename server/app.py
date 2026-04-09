@@ -8,9 +8,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 
-from models import Action, State, StepResult
+from models import Action
 from env import VitaScaleEnv
+from web_ui import render_dashboard_html
 
 app = FastAPI(
     title="VitaScale Environment",
@@ -39,6 +41,16 @@ async def root():
         "status": "running",
         "tasks": TASKS,
     }
+
+
+@app.get("/web", response_class=HTMLResponse)
+async def web_dashboard():
+    return render_dashboard_html(TASKS)
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard_alias():
+    return render_dashboard_html(TASKS)
 
 
 @app.get("/health")

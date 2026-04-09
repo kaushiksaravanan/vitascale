@@ -105,11 +105,29 @@ docker build -t vitascale .
 docker run -p 7860:7860 vitascale
 ```
 
+### Built-in Web Dashboard
+
+Open the live visualization at:
+
+```bash
+http://localhost:7860/web
+```
+
+or on the deployed Space:
+
+```bash
+https://kaushikss-vitascale.hf.space/web
+```
+
+The dashboard lets you reset tasks, trigger scaling actions, inspect state, and visualize load vs capacity, reward history, queue pressure, response time, and recent task events in real time.
+
 ### API Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/` | Environment info |
+| GET | `/web` | Interactive GUI dashboard |
+| GET | `/dashboard` | Alias for the GUI dashboard |
 | GET | `/health` | Health check |
 | POST | `/reset?task_id=...` | Reset with a task |
 | POST | `/step` | Submit action (body: `{"action_type": "...", "num_instances": N}`) |
