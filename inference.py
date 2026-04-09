@@ -48,11 +48,10 @@ def log_step(step: int, action: str, reward: float, done: bool, error=None):
     )
 
 
-def log_end(success: bool, steps: int, score: float, rewards: List[float]):
+def log_end(success: bool, steps: int, rewards: List[float]):
     rewards_str = ",".join(f"{reward:.2f}" for reward in rewards)
     print(
-        f"[END] success={_format_bool(success)} steps={steps} "
-        f"score={score:.2f} rewards={rewards_str}",
+        f"[END] success={_format_bool(success)} steps={steps} rewards={rewards_str}",
         flush=True,
     )
 
@@ -188,7 +187,7 @@ def run_task(task_id: str, client: OpenAI) -> float:
 
     finally:
         env.close()
-        log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
+        log_end(success=success, steps=steps_taken, rewards=rewards)
 
     return score
 
