@@ -1,4 +1,4 @@
-"""Deterministic graders for VitaScale tasks. Each returns 0.0-1.0 with partial credit."""
+"""Deterministic graders for VitaScale tasks. Each returns scores in (0, 1) with partial credit."""
 
 from models import Observation
 
@@ -40,7 +40,7 @@ def grade_easy_bench(final_obs: Observation, total_reward: float, history: list)
         elif action_ratio <= 0.80:
             score += 0.25 * (1.0 - (action_ratio - 0.20) / 0.60)
 
-    return round(min(1.0, max(0.0, score)), 4)
+    return round(min(0.999, max(0.001, score)), 4)
 
 
 def grade_medium_bench(final_obs: Observation, total_reward: float, history: list) -> float:
@@ -93,7 +93,7 @@ def grade_medium_bench(final_obs: Observation, total_reward: float, history: lis
     else:
         score += 0.15
 
-    return round(min(1.0, max(0.0, score)), 4)
+    return round(min(0.999, max(0.001, score)), 4)
 
 
 def grade_hard_bench(final_obs: Observation, total_reward: float, history: list) -> float:
@@ -158,7 +158,7 @@ def grade_hard_bench(final_obs: Observation, total_reward: float, history: list)
     else:
         score += 0.15
 
-    return round(min(1.0, max(0.0, score)), 4)
+    return round(min(0.999, max(0.001, score)), 4)
 
 
 GRADERS = {
