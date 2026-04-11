@@ -48,10 +48,11 @@ def log_step(step: int, action: str, reward: float, done: bool, error=None):
     )
 
 
-def log_end(success: bool, steps: int, rewards: List[float]):
+def log_end(success: bool, steps: int, score: float, rewards: List[float]):
     rewards_str = ",".join(f"{reward:.2f}" for reward in rewards)
     print(
-        f"[END] success={_format_bool(success)} steps={steps} rewards={rewards_str}",
+        f"[END] success={_format_bool(success)} steps={steps} "
+        f"score={score:.4f} rewards={rewards_str}",
         flush=True,
     )
 
@@ -182,12 +183,15 @@ def run_task(task_id: str, client: OpenAI) -> float:
             score = float(final_score)
         else:
             score = sum(rewards) / MAX_TOTAL_REWARD if MAX_TOTAL_REWARD > 0 else 0.0
-            score = min(max(score, 0.0), 1.0)
+        # Clamp strictly inside (0, 1) — validator rejects 0.0 and 1.0
+        score = min(0.999, max(0.001, score))
         success = score >= SUCCESS_SCORE_THRESHOLD
 
     finally:
         env.close()
-        log_end(success=success, steps=steps_taken, rewards=rewards)
+        # Ensure score is strictly in (0, 1) even on early failure
+        score = min(0.999, max(0.001, score))
+        log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 
     return score
 
