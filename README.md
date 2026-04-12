@@ -141,6 +141,8 @@ The `/dashboard` route is provided as a friendly alias that redirects to `/web`.
 
 ## Architecture
 
+![Architecture Diagram](architecture.png)
+
 ```
 vitascalenv/
 ├── models.py          # Typed Pydantic models
